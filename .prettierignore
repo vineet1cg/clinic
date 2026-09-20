@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+clinicos_end_to_end_spec.md
+design-system/
+graphify-out/

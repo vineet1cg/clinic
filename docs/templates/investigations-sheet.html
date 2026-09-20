@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Maitri — Investigations Sheet</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #eee;
+        color: #111;
+        font:
+          12px Arial,
+          sans-serif;
+      }
+      .sheet {
+        width: 190mm;
+        max-width: 100%;
+        margin: 20px auto;
+        padding: 10mm;
+        background: white;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #155e75;
+      }
+      header img {
+        width: 45px;
+        height: 56px;
+        object-fit: contain;
+      }
+      header p {
+        margin: 3px 0;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        color: #155e75;
+      }
+      h2 {
+        margin: 14px 0 8px;
+        padding: 5px;
+        border: 1px solid #222;
+        font-size: 13px;
+        text-align: center;
+        text-transform: uppercase;
+      }
+      .fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+      }
+      .field {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        min-height: 23px;
+      }
+      .line {
+        flex: 1;
+        min-width: 20px;
+        border-bottom: 1px dotted #777;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      th,
+      td {
+        border: 1px solid #777;
+        padding: 4px;
+        overflow-wrap: anywhere;
+      }
+      th {
+        font-size: 11px;
+        font-weight: normal;
+      }
+      td {
+        height: 24px;
+      }
+      .followup th:nth-child(1) {
+        width: 7%;
+      }
+      .followup th:nth-child(2) {
+        width: 13%;
+      }
+      .followup th:nth-child(3) {
+        width: 30%;
+      }
+      .followup th:nth-child(n + 4) {
+        width: 10%;
+      }
+      .writing {
+        height: 45px;
+        border-bottom: 1px dotted #777;
+      }
+      footer {
+        margin-top: 14px;
+        font-size: 10px;
+        text-align: center;
+      }
+      .instructions {
+        text-align: center;
+        padding: 12px;
+        font-size: 14px;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 10mm;
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        .sheet {
+          width: auto;
+          max-width: none;
+          padding: 0;
+          margin: 0;
+        }
+        .instructions {
+          display: none;
+        }
+        header,
+        h2,
+        tr,
+        .field {
+          break-inside: avoid;
+        }
+        h2 {
+          break-after: avoid;
+        }
+        thead {
+          display: table-header-group;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <p class="instructions">
+      Blank investigations sheet · Print using Ctrl+P / Cmd+P · A4 portrait
+    </p>
+    <main class="sheet">
+      <header>
+        <img src="../../logo.jpeg" width="827" height="1024" alt="Maitri mother and child emblem" />
+        <div>
+          <h1>MAITRI</h1>
+          <p>Hospital &amp; Maternity Home</p>
+          <p>Dr. Manish Parmar M.S.</p>
+        </div>
+      </header>
+      <h2>Investigations</h2>
+      <div class="fields">
+        <div>
+          <div class="field">Bl. Group : <span class="line"></span></div>
+          <div class="field">Hb : <span class="line"></span></div>
+          <div class="field">TC : <span class="line"></span></div>
+          <div class="field">DC : <span class="line"></span></div>
+          <div class="field">ESR : <span class="line"></span></div>
+          <div class="field">HIV : <span class="line"></span></div>
+          <div class="field">HbSAg : <span class="line"></span></div>
+          <div class="field">Urine : <span class="line"></span></div>
+        </div>
+        <div>
+          <div class="field">Bl. Urea : <span class="line"></span></div>
+          <div class="field">Bl. Sugar : <span class="line"></span></div>
+          <div class="field">VDRL : <span class="line"></span></div>
+          <div class="field">TOXO Test : <span class="line"></span></div>
+          <div class="field">Inj. T.T. :</div>
+          <div class="field">1st : <span class="line"></span></div>
+          <div class="field">2nd : <span class="line"></span></div>
+        </div>
+      </div>
+      <table class="followup" aria-label="Investigation follow-up record">
+        <thead>
+          <tr>
+            <th>Sr. No.</th>
+            <th>Date</th>
+            <th>Complaints</th>
+            <th>Wt.<br />Kg.</th>
+            <th>B.P.</th>
+            <th>Size</th>
+            <th>FH<br />CM</th>
+            <th>Oedema</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>Sonography Report</h2>
+      <table aria-label="Sonography report">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>BPD</th>
+            <th>FL</th>
+            <th>AC</th>
+            <th>Placenta</th>
+            <th>Liquor</th>
+            <th>Other</th>
+            <th>Position</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>Discharge Record</h2>
+      <div class="fields">
+        <div class="field">Date &amp; Time of Admission <span class="line"></span></div>
+        <div class="field">Date &amp; Time of Discharge <span class="line"></span></div>
+      </div>
+      <div class="field">Date &amp; Time of Delivery / Operation <span class="line"></span></div>
+      <div class="field">Indication of Operation <span class="line"></span></div>
+      <div class="field">Type of Delivery <span class="line"></span></div>
+      <div class="fields">
+        <div class="field">Baby Sex <span class="line"></span></div>
+        <div class="field">Weight at Birth <span class="line"></span></div>
+      </div>
+      <div>Treatment Given :</div>
+      <div class="writing"></div>
+      <div class="field">Remark : <span class="line"></span></div>
+      <footer>MAITRI Hospital &amp; Maternity Home · Dr. Manish Parmar M.S.</footer>
+    </main>
+  </body>
+</html>

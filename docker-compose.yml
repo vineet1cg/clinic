@@ -1,0 +1,219 @@
+name: ${COMPOSE_PROJECT_NAME:-clinicos}
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-80}:80'
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+      - app
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_APP_NAME: ClinicOS
+        VITE_CLINIC_NAME: ${VITE_CLINIC_NAME:-Your Clinic}
+    restart: unless-stopped
+    expose:
+      - '8080'
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--spider', 'http://127.0.0.1:8080/']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      HOST: 0.0.0.0
+      PORT: 4000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRUST_PROXY: 1
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME:-clinicos_app}:${MONGO_APP_PASSWORD:-clinicos-app-local-only}@mongo:27017/${MONGO_DATABASE:-clinicos}?authSource=${MONGO_DATABASE:-clinicos}
+      DEFAULT_CLINIC_ID: ${DEFAULT_CLINIC_ID:-000000000000000000000001}
+      CLINIC_TIMEZONE: ${CLINIC_TIMEZONE:-Asia/Kolkata}
+      REDIS_URL: redis://redis:6379
+      APP_BASE_URL: http://localhost:${APP_PORT:-80}
+      CORS_ORIGINS: http://localhost,http://localhost:${APP_PORT:-80}
+      JWT_SECRET: ${JWT_SECRET:-local-compose-secret-change-before-deploy}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OPENEMR_ENABLED: ${OPENEMR_ENABLED:-false}
+      OPENEMR_BASE_URL: ${OPENEMR_BASE_URL:-http://openemr}
+      OPENEMR_TOKEN_URL: ${OPENEMR_TOKEN_URL:-http://openemr/oauth2/default/token}
+      OPENEMR_CLIENT_ID: ${OPENEMR_CLIENT_ID:-}
+      OPENEMR_CLIENT_SECRET: ${OPENEMR_CLIENT_SECRET:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Clinic Administrator}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@clinic.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - '4000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    networks:
+      - app
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+      NOTIFICATION_PROVIDER: ${NOTIFICATION_PROVIDER:-development-log}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-clinicos}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-clinicos-local-only}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-clinicos}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-clinicos_app}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-clinicos-app-local-only}
+    volumes:
+      - mongo_data:/data/db
+      - ./infra/mongo/init-app-user.js:/docker-entrypoint-initdb.d/init-app-user.js:ro
+    ports:
+      - '127.0.0.1:${MONGO_PORT:-27017}:27017'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'mongosh --quiet --username $${MONGO_INITDB_ROOT_USERNAME} --password $${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval "quit(db.adminCommand(''ping'').ok ? 0 : 2)"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - app
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--save', '60', '1000']
+    volumes:
+      - redis_data:/data
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app
+
+  openemr-db:
+    profiles: ['openemr']
+    image: mariadb:11.8
+    restart: unless-stopped
+    command: ['mariadbd', '--character-set-server=utf8mb4']
+    environment:
+      MYSQL_ROOT_PASSWORD: ${OPENEMR_DB_ROOT_PASSWORD:-openemr-local-root}
+    volumes:
+      - openemr_db_data:/var/lib/mysql
+    healthcheck:
+      test:
+        ['CMD', '/usr/local/bin/healthcheck.sh', '--su-mysql', '--connect', '--innodb_initialized']
+      interval: 30s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+    networks:
+      - app
+
+  openemr:
+    profiles: ['openemr']
+    image: openemr/openemr:8.3.0
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: openemr-db
+      MYSQL_ROOT_PASS: ${OPENEMR_DB_ROOT_PASSWORD:-openemr-local-root}
+      MYSQL_USER: ${OPENEMR_DB_USER:-openemr}
+      MYSQL_PASS: ${OPENEMR_DB_PASSWORD:-openemr-local-only}
+      OE_USER: ${OPENEMR_ADMIN_USER:-admin}
+      OE_PASS: ${OPENEMR_ADMIN_PASSWORD:-ChangeOpenEMRNow!}
+    depends_on:
+      openemr-db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${OPENEMR_HTTP_PORT:-8300}:80'
+      - '127.0.0.1:${OPENEMR_HTTPS_PORT:-9300}:443'
+    volumes:
+      - openemr_sites:/var/www/localhost/htdocs/openemr/sites
+      - openemr_logs:/var/log
+    healthcheck:
+      test:
+        [
+          'CMD',
+          '/usr/bin/curl',
+          '--fail',
+          '--insecure',
+          '--silent',
+          'https://localhost/meta/health/readyz',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    networks:
+      - app
+
+networks:
+  edge: {}
+  app:
+    internal: true
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}
+  mongo_data: {}
+  redis_data: {}
+  openemr_db_data: {}
+  openemr_sites: {}
+  openemr_logs: {}

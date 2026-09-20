@@ -1,0 +1,36 @@
+:80 {
+	encode zstd gzip
+
+	@backend path /api/* /health/live
+	handle @backend {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace query REDACTED
+				replace patientId REDACTED
+				replace actorId REDACTED
+				replace cursor REDACTED
+				replace doctorId REDACTED
+			}
+			wrap filter {
+				request>uri regexp [0-9a-fA-F]{24} :id
+				wrap json
+			}
+		}
+	}
+}

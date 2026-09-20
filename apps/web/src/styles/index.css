@@ -1,0 +1,216 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Noto Sans', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Figtree', 'Noto Sans', 'Segoe UI', Arial, sans-serif;
+  --color-clinic-bg: #f4fbfc;
+  --color-clinic-surface: #ffffff;
+  --color-clinic-subtle: #eaf4f6;
+  --color-clinic-border: #c7dde2;
+  --color-clinic-text: #153d49;
+  --color-clinic-muted: #55717a;
+  --color-clinic-primary: #0e7490;
+  --color-clinic-primary-dark: #155e75;
+  --color-clinic-primary-soft: #cffafe;
+  --color-clinic-action: #0e7490;
+  --color-clinic-action-hover: #155e75;
+  --color-clinic-brand: #155e75;
+  --color-clinic-accent: #047857;
+  --color-clinic-accent-soft: #d1fae5;
+  --color-clinic-positive-action: #047857;
+  --color-clinic-positive-action-hover: #065f46;
+  --color-clinic-warning: #925900;
+  --color-clinic-warning-soft: #fef3c7;
+  --color-clinic-danger: #b91c1c;
+  --color-clinic-danger-soft: #fee2e2;
+  --color-clinic-info: #1e40af;
+  --color-clinic-info-soft: #dbeafe;
+  --color-clinic-violet: #6b21a8;
+  --color-clinic-violet-soft: #f3e8ff;
+  --color-clinic-orange: #9a3412;
+  --color-clinic-orange-soft: #ffedd5;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px rgb(15 23 42 / 0.05);
+}
+
+:root {
+  color-scheme: light;
+  color: var(--color-clinic-text);
+  background: var(--color-clinic-bg);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Screen-only overrides leave paper documents in the original light palette. */
+@media screen {
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --color-clinic-bg: #0c1821;
+    --color-clinic-surface: #142632;
+    --color-clinic-subtle: #1c3543;
+    --color-clinic-border: #405e6d;
+    --color-clinic-text: #e4eff3;
+    --color-clinic-muted: #a9bec8;
+    --color-clinic-primary: #67d6ed;
+    --color-clinic-primary-dark: #a5e8f5;
+    --color-clinic-primary-soft: #153e4c;
+    --color-clinic-brand: #102f3c;
+    --color-clinic-accent: #6ee7b7;
+    --color-clinic-accent-soft: #123c32;
+    --color-clinic-warning: #fcd34d;
+    --color-clinic-warning-soft: #403219;
+    --color-clinic-danger: #fca5a5;
+    --color-clinic-danger-soft: #44272d;
+    --color-clinic-info: #93c5fd;
+    --color-clinic-info-soft: #1c3552;
+    --color-clinic-violet: #d8b4fe;
+    --color-clinic-violet-soft: #38274d;
+    --color-clinic-orange: #fdba74;
+    --color-clinic-orange-soft: #432f22;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.18), 0 8px 24px rgb(0 0 0 / 0.12);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-clinic-bg);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-clinic-primary);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: var(--color-clinic-text);
+  background: var(--color-clinic-primary-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.clinic-logo {
+  /* The supplied JPEG has a white background. Preserve the original artwork in both themes. */
+  background: #fff;
+}
+
+@media print {
+  :root {
+    --color-clinic-bg: #fff;
+  }
+
+  :focus-visible {
+    outline: none;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root {
+    color-scheme: light;
+    color: #153d49;
+    background: #fff;
+  }
+
+  #main-content {
+    max-width: none;
+    padding: 0;
+  }
+
+  .app-content {
+    padding-left: 0 !important;
+  }
+
+  .invoice-layout {
+    display: block;
+    font-size: 10pt;
+  }
+
+  .invoice-document,
+  .invoice-payments {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .invoice-table {
+    overflow: visible;
+  }
+
+  .invoice-table table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .invoice-table th:first-child {
+    width: 46%;
+  }
+
+  .invoice-table th,
+  .invoice-table td {
+    padding: 8pt;
+    overflow-wrap: anywhere;
+  }
+
+  .invoice-table thead {
+    display: table-header-group;
+  }
+
+  .invoice-table tr,
+  .invoice-letterhead,
+  .invoice-document dl,
+  .invoice-payments li,
+  .invoice-footer {
+    break-inside: avoid;
+  }
+
+  .invoice-letterhead {
+    padding: 0 0 12pt;
+  }
+
+  .invoice-payments {
+    margin-top: 12pt;
+    padding: 0;
+  }
+}
