@@ -1,0 +1,21 @@
+name: Render Keep Alive
+
+on:
+  schedule:
+    # Runs every 10 minutes to keep the Render free tier instance active (sleep threshold is 15 mins)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping ClinicOS Health Route
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://clinic-1-jcpr.onrender.com/health/live")
+          echo "Render health check response code: $response"
+          if [ "$response" -ne 200 ]; then
+            echo "Failed to reach health endpoint. Status: $response"
+            exit 1
+          fi
