@@ -17,6 +17,46 @@ describe('notification worker handler', () => {
     expect(result).not.toHaveProperty('recipient');
   });
 
+  it('formats and processes payment receipt notifications', async () => {
+    const result = await processNotificationJob({
+      id: 'job-receipt-1',
+      name: 'PAYMENT_RECEIPT',
+      data: {
+        recipient: '+919876543210',
+        templateCode: 'payment_receipt',
+        payload: {
+          invoiceNumber: 'INV000001',
+          amount: 500,
+          patientName: 'Jane Doe',
+        },
+      },
+    });
+
+    expect(result.jobId).toBe('job-receipt-1');
+    expect(result.messageSummary).toContain('INV000001');
+    expect(result).not.toHaveProperty('recipient');
+  });
+
+  it('formats and processes appointment confirmation notifications', async () => {
+    const result = await processNotificationJob({
+      id: 'job-appoint-1',
+      name: 'APPOINTMENT_CONFIRMATION',
+      data: {
+        recipient: 'patient@example.com',
+        templateCode: 'appointment_confirmation',
+        payload: {
+          doctorName: 'Dr. Smith',
+          patientName: 'John Doe',
+          date: '2026-10-06',
+          time: '10:00 AM',
+        },
+      },
+    });
+
+    expect(result.channel).toBe('email');
+    expect(result.messageSummary).toContain('Dr. Smith');
+  });
+
   it('rejects an unknown job type', async () => {
     await expect(
       processNotificationJob({ id: 'job-2', name: 'UNKNOWN', data: {} }),

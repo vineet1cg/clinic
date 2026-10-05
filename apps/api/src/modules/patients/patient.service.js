@@ -1,5 +1,3 @@
-import { env } from '../../config/env.js';
-import { createPatient as createOpenEmrPatient } from '../../integrations/openemr/patients.js';
 import { nextSequence } from '../../models/counter.model.js';
 import { Patient } from '../../models/patient.model.js';
 import { AppError } from '../../common/app-error.js';
@@ -54,20 +52,13 @@ export async function createPatientRecord({ clinicId, actorId, input }) {
     });
   }
 
-  let openemrPatientId;
-  if (env.OPENEMR_ENABLED) {
-    const openemrPatient = await createOpenEmrPatient(input);
-    openemrPatientId = openemrPatient.id;
-  }
-
   const sequence = await nextSequence(`${clinicId}:patient`);
   return Patient.create({
     ...input,
     allowDuplicate: undefined,
     patientNumber: `PT${String(sequence).padStart(6, '0')}`,
     clinicId,
-    openemrPatientId,
-    source: env.OPENEMR_ENABLED ? 'OPENEMR' : 'CLINICOS_LOCAL',
+    source: 'CLINICOS_LOCAL',
     normalizedName: normalizeName(input.fullName),
     normalizedMobile: normalizePhone(input.mobile),
     duplicateReason: input.allowDuplicate ? input.duplicateReason : undefined,

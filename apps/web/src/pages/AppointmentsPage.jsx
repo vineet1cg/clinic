@@ -480,7 +480,7 @@ export default function AppointmentsPage() {
                   className="rounded-xl bg-clinic-accent-soft p-3 text-sm font-semibold text-clinic-accent"
                   role="status"
                 >
-                  Visit registered. Collect the fee to release the patient to the doctor queue.
+                  Visit registered. Payment status is shown on its consultation invoice.
                 </p>
               ) : null}
               <button
@@ -503,11 +503,6 @@ export default function AppointmentsPage() {
               No active doctor is available. Add a doctor from Staff before booking visits.
             </p>
           ) : null}
-          {checkInMutation.isError ? (
-            <div className="border-b border-clinic-border p-5">
-              <ApiErrorNotice error={checkInMutation.error} />
-            </div>
-          ) : null}
         </section>
 
         <section
@@ -523,6 +518,11 @@ export default function AppointmentsPage() {
             </h2>
             <p className="mt-1 text-sm text-clinic-muted">{formatClinicDate(today)}</p>
           </div>
+          {checkInMutation.isError ? (
+            <div className="border-b border-clinic-border p-5">
+              <ApiErrorNotice error={checkInMutation.error} />
+            </div>
+          ) : null}
           {appointmentsQuery.isError ? (
             <div className="p-5">
               <ApiErrorNotice error={appointmentsQuery.error} />

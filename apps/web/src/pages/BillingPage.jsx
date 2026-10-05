@@ -12,14 +12,21 @@ import { PatientPicker } from '../components/patients/PatientPicker.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { createInvoice, getPatient, listInvoices } from '../services/clinic.service.js';
+import { formatClinicDate } from '../utils/format.js';
 
 export default function BillingPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const preselectedPatientId = searchParams.get('patientId');
+  const queueEntryId = searchParams.get('queueEntryId');
   const [selectedPatientOverride, setSelectedPatientOverride] = useState(undefined);
   const invoicesQuery = useQuery({ queryKey: ['invoices'], queryFn: () => listInvoices() });
+  const visitInvoiceQuery = useQuery({
+    queryKey: ['invoices', 'queue-entry', queueEntryId],
+    queryFn: () => listInvoices({ queueEntryId, purpose: 'GENERAL' }),
+    enabled: Boolean(queueEntryId),
+  });
   const patientQuery = useQuery({
     queryKey: ['patient', preselectedPatientId],
     queryFn: () => getPatient(preselectedPatientId),
@@ -29,7 +36,7 @@ export default function BillingPage() {
     resolver: zodResolver(invoiceCreateSchema),
     defaultValues: {
       patientId: '',
-      queueEntryId: searchParams.get('queueEntryId') || undefined,
+      queueEntryId: queueEntryId || undefined,
       doctorId: searchParams.get('doctorId') || undefined,
       items: [{ description: '', quantity: 1, rate: 0 }],
       discount: 0,
@@ -54,6 +61,10 @@ export default function BillingPage() {
       shouldValidate: Boolean(selectedPatient),
     });
   }, [form, selectedPatient]);
+  useEffect(() => {
+    const existingInvoice = visitInvoiceQuery.data?.[0];
+    if (existingInvoice) navigate(`/app/billing/${existingInvoice.id}`, { replace: true });
+  }, [navigate, visitInvoiceQuery.data]);
 
   const watchedItems = useWatch({ control: form.control, name: 'items' });
   const watchedDiscount = Number(useWatch({ control: form.control, name: 'discount' }) || 0);
@@ -90,6 +101,8 @@ export default function BillingPage() {
             noValidate
           >
             <input type="hidden" {...form.register('patientId')} />
+            <input type="hidden" {...form.register('queueEntryId')} />
+            <input type="hidden" {...form.register('doctorId')} />
             {form.formState.errors.patientId ? (
               <p className="text-sm font-medium text-clinic-danger" role="alert">
                 Select a patient.
@@ -181,12 +194,17 @@ export default function BillingPage() {
               </div>
             </div>
             {mutation.isError ? <ApiErrorNotice error={mutation.error} /> : null}
+            {visitInvoiceQuery.isError ? <ApiErrorNotice error={visitInvoiceQuery.error} /> : null}
             <button
               type="submit"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || visitInvoiceQuery.isLoading}
               className="min-h-12 w-full rounded-xl bg-clinic-action px-5 font-bold text-white hover:bg-clinic-action-hover disabled:opacity-50"
             >
-              {mutation.isPending ? 'Creating invoice…' : 'Create invoice'}
+              {mutation.isPending
+                ? 'Creating invoice…'
+                : visitInvoiceQuery.isLoading
+                  ? 'Checking visit billing…'
+                  : 'Create invoice'}
             </button>
           </form>
         </section>
@@ -250,4 +268,3 @@ export default function BillingPage() {
     </>
   );
 }
-import { formatClinicDate } from '../utils/format.js';

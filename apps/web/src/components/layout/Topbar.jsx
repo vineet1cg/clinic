@@ -6,7 +6,7 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus.js';
 import { initials } from '../../utils/format.js';
 import { ThemeSelect } from '../ui/ThemeSelect.jsx';
 
-export function Topbar({ onOpenNavigation }) {
+export function Topbar({ navigationOpen, onOpenNavigation }) {
   const navigate = useNavigate();
   const { user, logout, isLoggingOut } = useAuth();
   const online = useNetworkStatus();
@@ -29,7 +29,9 @@ export function Topbar({ onOpenNavigation }) {
         <button
           type="button"
           aria-label="Open navigation"
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl text-clinic-text hover:bg-clinic-subtle lg:hidden"
+          aria-controls="primary-navigation"
+          aria-expanded={navigationOpen}
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl text-clinic-text hover:bg-clinic-subtle"
           onClick={onOpenNavigation}
         >
           <Menu aria-hidden="true" size={23} />

@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { getPublicQueue } from '../services/clinic.service.js';
 import { ThemeSelect } from '../components/ui/ThemeSelect.jsx';
 import { ClinicBrand } from '../components/ui/ClinicBrand.jsx';
+import { formatClinicDate } from '../utils/format.js';
 
 export default function QueueDisplayPage() {
   const { doctorId } = useParams();
@@ -79,4 +80,3 @@ export default function QueueDisplayPage() {
     </main>
   );
 }
-import { formatClinicDate } from '../utils/format.js';

@@ -8,7 +8,6 @@ export function errorHandler(error, req, res, _next) {
   const versionConflict = error?.name === 'VersionError';
   const malformedJson = error instanceof SyntaxError && error?.status === 400 && 'body' in error;
   const payloadTooLarge = error?.type === 'entity.too.large';
-  const openEmrFailure = error?.name === 'OpenEmrError';
   const knownError = error instanceof AppError;
   const statusCode = knownError
     ? error.statusCode
@@ -20,11 +19,9 @@ export function errorHandler(error, req, res, _next) {
           ? 400
           : payloadTooLarge
             ? 413
-            : openEmrFailure
-              ? 502
-              : invalidIdentifier || validationFailure
-                ? 422
-                : 500;
+            : invalidIdentifier || validationFailure
+              ? 422
+              : 500;
   const code = knownError
     ? error.code
     : duplicateKey
@@ -35,13 +32,11 @@ export function errorHandler(error, req, res, _next) {
           ? 'INVALID_JSON'
           : payloadTooLarge
             ? 'PAYLOAD_TOO_LARGE'
-            : openEmrFailure
-              ? 'OPENEMR_UNAVAILABLE'
-              : invalidIdentifier
-                ? 'INVALID_IDENTIFIER'
-                : validationFailure
-                  ? 'DATABASE_VALIDATION_ERROR'
-                  : 'INTERNAL_SERVER_ERROR';
+            : invalidIdentifier
+              ? 'INVALID_IDENTIFIER'
+              : validationFailure
+                ? 'DATABASE_VALIDATION_ERROR'
+                : 'INTERNAL_SERVER_ERROR';
   const message = knownError
     ? error.message
     : duplicateKey
@@ -52,13 +47,11 @@ export function errorHandler(error, req, res, _next) {
           ? 'The request body contains invalid JSON.'
           : payloadTooLarge
             ? 'The request body is too large.'
-            : openEmrFailure
-              ? 'OpenEMR is temporarily unavailable. Try again shortly.'
-              : invalidIdentifier
-                ? 'The supplied record identifier is invalid.'
-                : validationFailure
-                  ? 'The record could not be saved because some fields are invalid.'
-                  : 'An unexpected error occurred.';
+            : invalidIdentifier
+              ? 'The supplied record identifier is invalid.'
+              : validationFailure
+                ? 'The record could not be saved because some fields are invalid.'
+                : 'An unexpected error occurred.';
 
   const logContext = {
     requestId: req.id,

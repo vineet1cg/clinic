@@ -46,6 +46,15 @@ export function parseDisplayDate(value) {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : value;
 }
 
+export function formatDateInput(value = '') {
+  const digits = String(value).replace(/\D/g, '').slice(0, 8);
+  if (digits.length < 2) return digits;
+  if (digits.length === 2) return `${digits}/`;
+  if (digits.length < 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  if (digits.length === 4) return `${digits.slice(0, 2)}/${digits.slice(2)}/`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 export function initials(name = '') {
   return name
     .split(/\s+/)

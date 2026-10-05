@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ArrowRight, Monitor, Plus, Stethoscope } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { QUEUE_STATES } from '@clinicos/contracts';
+import { PERMISSIONS, QUEUE_STATES } from '@clinicos/contracts';
 import { ApiErrorNotice } from '../components/feedback/ApiErrorNotice.jsx';
 import { EmptyState } from '../components/feedback/EmptyState.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { StatusBadge } from '../components/ui/StatusBadge.jsx';
+import { useAuth } from '../hooks/useAuth.js';
 import {
   listQueue,
   recoverConsultationInvoice,
@@ -29,7 +30,6 @@ const nextAction = {
   WAITING: { state: QUEUE_STATES.READY_FOR_DOCTOR, label: 'Ready for doctor' },
   VITALS_PENDING: { state: QUEUE_STATES.VITALS_COMPLETE, label: 'Vitals complete' },
   VITALS_COMPLETE: { state: QUEUE_STATES.READY_FOR_DOCTOR, label: 'Ready for doctor' },
-  CONSULTATION_COMPLETE: { state: QUEUE_STATES.BILLING_PENDING, label: 'Send to billing' },
   PAID: { state: QUEUE_STATES.COMPLETED, label: 'Complete visit' },
   ON_HOLD: { state: QUEUE_STATES.WAITING, label: 'Resume waiting' },
 };
@@ -39,7 +39,19 @@ function minutesSince(value) {
   return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
 }
 
+function queueDetail(entry) {
+  if (entry.state === QUEUE_STATES.PAYMENT_PENDING)
+    return `₹${entry.consultationFee?.toLocaleString('en-IN') || '—'} due before queue`;
+  if (entry.state === QUEUE_STATES.CONSULTATION_COMPLETE)
+    return 'consultation complete · reception action required';
+  if (entry.state === QUEUE_STATES.BILLING_PENDING) return 'reception billing in progress';
+  if (entry.state === QUEUE_STATES.PAID) return 'billing complete · ready to close';
+  if (entry.state === QUEUE_STATES.COMPLETED) return 'visit complete';
+  return `waiting ${minutesSince(entry.checkInAt)} min`;
+}
+
 export default function QueuePage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const queueQuery = useQuery({
@@ -48,7 +60,7 @@ export default function QueuePage() {
     refetchInterval: 10_000,
   });
   const transitionMutation = useMutation({
-    mutationFn: ({ id, state }) => transitionQueue(id, state),
+    mutationFn: ({ id, state, reason }) => transitionQueue(id, state, reason),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue'] }),
   });
   const recoverInvoiceMutation = useMutation({
@@ -61,7 +73,11 @@ export default function QueuePage() {
     ['WAITING', 'VITALS_PENDING', 'VITALS_COMPLETE', 'READY_FOR_DOCTOR'].includes(entry.state),
   ).length;
   const consulting = queue.filter((entry) => entry.state === 'IN_CONSULTATION').length;
+  const awaitingReception = queue.filter((entry) => entry.state === 'CONSULTATION_COMPLETE').length;
   const completed = queue.filter((entry) => entry.state === 'COMPLETED').length;
+  const canManageQueue = user.permissions.includes(PERMISSIONS.QUEUE_MANAGE);
+  const canOpenConsultation = user.permissions.includes(PERMISSIONS.ENCOUNTER_VIEW);
+  const canCreateBilling = user.permissions.includes(PERMISSIONS.BILLING_CREATE);
 
   return (
     <>
@@ -78,13 +94,15 @@ export default function QueuePage() {
               <Monitor aria-hidden="true" size={18} />
               Waiting-room view
             </Link>
-            <Link
-              to="/app/appointments?mode=walk-in"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-clinic-action px-4 text-sm font-bold text-white hover:bg-clinic-action-hover"
-            >
-              <Plus aria-hidden="true" size={18} />
-              Add walk-in
-            </Link>
+            {canManageQueue ? (
+              <Link
+                to="/app/appointments?mode=walk-in"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-clinic-action px-4 text-sm font-bold text-white hover:bg-clinic-action-hover"
+              >
+                <Plus aria-hidden="true" size={18} />
+                Add walk-in
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -107,8 +125,8 @@ export default function QueuePage() {
         <div className="border-b border-clinic-border px-5 py-4 sm:px-6">
           <h2 className="font-display text-lg font-semibold text-clinic-text">All doctors</h2>
           <p className="mt-1 text-sm text-clinic-muted">
-            {feeDue} fee due · {waiting} waiting · {consulting} in consultation · {completed}{' '}
-            completed
+            {feeDue} fee due · {waiting} waiting · {consulting} in consultation ·{' '}
+            {awaitingReception} awaiting reception · {completed} completed
           </p>
         </div>
         {queueQuery.isError ? (
@@ -139,7 +157,7 @@ export default function QueuePage() {
         {queue.length ? (
           <ul className="divide-y divide-clinic-border">
             {queue.map((entry) => {
-              const action = nextAction[entry.state];
+              const action = canManageQueue ? nextAction[entry.state] : null;
               const isConsultation = ['READY_FOR_DOCTOR', 'IN_CONSULTATION'].includes(entry.state);
               return (
                 <li key={entry.id} className="px-4 py-4 sm:px-6">
@@ -163,10 +181,7 @@ export default function QueuePage() {
                           ) : null}
                         </div>
                         <p className="mt-1 text-sm text-clinic-muted">
-                          Dr. {entry.doctorId?.name} ·{' '}
-                          {entry.state === 'PAYMENT_PENDING'
-                            ? `₹${entry.consultationFee?.toLocaleString('en-IN') || '—'} due before queue`
-                            : `waiting ${minutesSince(entry.checkInAt)} min`}
+                          Dr. {entry.doctorId?.name} · {queueDetail(entry)}
                           {entry.reason ? ` · ${entry.reason}` : ''}
                         </p>
                       </div>
@@ -192,7 +207,7 @@ export default function QueuePage() {
                           </button>
                         )
                       ) : null}
-                      {entry.state === 'WAITING' ? (
+                      {entry.state === 'WAITING' && canManageQueue ? (
                         <button
                           type="button"
                           onClick={() =>
@@ -219,7 +234,7 @@ export default function QueuePage() {
                           <ArrowRight aria-hidden="true" size={16} />
                         </button>
                       ) : null}
-                      {isConsultation ? (
+                      {isConsultation && canOpenConsultation ? (
                         <Link
                           to={`/app/consultation/${entry.id}`}
                           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-clinic-action px-3 text-sm font-bold text-white hover:bg-clinic-action-hover"
@@ -228,13 +243,32 @@ export default function QueuePage() {
                           {entry.state === 'READY_FOR_DOCTOR' ? 'Start' : 'Open'}
                         </Link>
                       ) : null}
-                      {entry.state === 'BILLING_PENDING' ? (
+                      {['CONSULTATION_COMPLETE', 'BILLING_PENDING'].includes(entry.state) &&
+                      canCreateBilling ? (
                         <Link
-                          to={`/app/billing?patientId=${entry.patientId?.id}&queueEntryId=${entry.id}&doctorId=${entry.doctorId?._id || ''}`}
+                          to={`/app/billing?patientId=${entry.patientId?.id}&queueEntryId=${entry.id}&doctorId=${entry.doctorId?.id || entry.doctorId?._id || ''}`}
                           className="inline-flex min-h-11 items-center rounded-xl bg-clinic-action px-3 text-sm font-bold text-white"
                         >
-                          Create invoice
+                          {entry.state === 'CONSULTATION_COMPLETE'
+                            ? 'Prepare final bill'
+                            : 'Continue billing'}
                         </Link>
+                      ) : null}
+                      {entry.state === 'CONSULTATION_COMPLETE' && canManageQueue ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            transitionMutation.mutate({
+                              id: entry.id,
+                              state: QUEUE_STATES.COMPLETED,
+                              reason: 'No additional charges after consultation',
+                            })
+                          }
+                          disabled={transitionMutation.isPending}
+                          className="inline-flex min-h-11 items-center rounded-xl border border-clinic-border px-3 text-sm font-bold text-clinic-text hover:bg-clinic-subtle disabled:opacity-50"
+                        >
+                          Close — no extra charges
+                        </button>
                       ) : null}
                     </div>
                   </div>

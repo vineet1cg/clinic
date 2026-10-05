@@ -2,11 +2,13 @@ import { z } from 'zod';
 import {
   APPOINTMENT_STATUSES,
   APPOINTMENT_TYPES,
+  CLINIC_LANGUAGES,
   INVOICE_STATUSES,
   INVENTORY_TRANSACTION_TYPES,
   LAB_STATUSES,
   PAYMENT_METHODS,
   QUEUE_STATES,
+  RECEIPT_FORMATS,
   USER_ROLES,
   USER_STATUSES,
 } from './constants.js';
@@ -16,7 +18,12 @@ const normalizedPhone = z
   .trim()
   .regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid mobile number including country code when needed');
 
-function isValidTimeZone(value) {
+const optionalTrimmedString = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
+
+export function isValidTimeZone(value) {
   try {
     new Intl.DateTimeFormat('en', { timeZone: value }).format();
     return true;
@@ -194,8 +201,8 @@ const invoiceItemSchema = z.object({
 
 export const invoiceCreateSchema = z.object({
   patientId: z.string().trim().min(1),
-  queueEntryId: z.string().trim().optional(),
-  doctorId: z.string().trim().optional(),
+  queueEntryId: optionalTrimmedString,
+  doctorId: optionalTrimmedString,
   items: z.array(invoiceItemSchema).min(1).max(100),
   discount: z.coerce.number().min(0).max(10_000_000).default(0),
   notes: z.string().trim().max(500).optional(),
@@ -204,6 +211,8 @@ export const invoiceCreateSchema = z.object({
 export const invoiceListSchema = z.object({
   status: z.enum(Object.values(INVOICE_STATUSES)).optional(),
   patientId: z.string().trim().optional(),
+  queueEntryId: z.string().trim().optional(),
+  purpose: z.enum(['GENERAL', 'CONSULTATION']).optional(),
   date: z.iso.date().optional(),
 });
 
@@ -220,6 +229,32 @@ export const paymentCreateSchema = z.object({
     ),
   method: z.enum(PAYMENT_METHODS),
   reference: z.string().trim().max(120).optional(),
+});
+
+export const invoiceVoidSchema = z.object({
+  reason: z.string().trim().min(2, 'Provide a reason for voiding this invoice').max(300),
+});
+
+export const invoiceRefundSchema = z.object({
+  amount: z.coerce
+    .number()
+    .positive('Refund amount must be positive')
+    .max(10_000_000)
+    .refine(
+      (value) =>
+        Number.isInteger(Math.round(value * 100)) &&
+        Math.abs(value * 100 - Math.round(value * 100)) < 1e-7,
+      'Use no more than two decimal places',
+    ),
+  reason: z.string().trim().min(2, 'Provide a reason for the refund').max(300),
+  method: z.enum(PAYMENT_METHODS).default('CASH'),
+  reference: z.string().trim().max(120).optional(),
+});
+
+export const prescriptionDispenseSchema = z.object({
+  inventoryItemId: z.string().trim().min(1, 'Select an inventory item to dispense'),
+  quantity: z.coerce.number().positive().max(1_000_000).optional(),
+  reason: z.string().trim().max(300).optional(),
 });
 
 export const staffCreateSchema = z.object({
@@ -260,8 +295,8 @@ export const clinicSettingsSchema = z.object({
     .default('Asia/Kolkata'),
   tokenPrefix: z.string().trim().min(1).max(8).toUpperCase().default('A'),
   defaultConsultationFee: z.coerce.number().min(0).max(10_000_000).multipleOf(0.01).default(0),
-  language: z.enum(['en', 'gu', 'hi']).default('en'),
-  receiptFormat: z.enum(['A4', 'A5', 'THERMAL_80MM']).default('A5'),
+  language: z.enum(CLINIC_LANGUAGES).default('en'),
+  receiptFormat: z.enum(RECEIPT_FORMATS).default('A5'),
   prescriptionFooter: z.string().trim().max(500).default(''),
   invoiceFooter: z.string().trim().max(500).default(''),
 });

@@ -3,6 +3,7 @@ import {
   PERMISSIONS,
   inventoryItemCreateSchema,
   inventoryTransactionSchema,
+  prescriptionDispenseSchema,
 } from '@clinicos/contracts';
 import { authenticate } from '../../middleware/authenticate.js';
 import { authorize } from '../../middleware/authorize.js';
@@ -10,7 +11,9 @@ import { verifyCsrf } from '../../middleware/csrf.js';
 import { validate } from '../../middleware/validate.js';
 import {
   createInventoryItem,
+  dispensePrescription,
   listInventory,
+  listPendingPrescriptions,
   recordInventoryTransaction,
 } from './inventory.controller.js';
 
@@ -24,6 +27,18 @@ inventoryRouter.post(
   verifyCsrf,
   validate(inventoryItemCreateSchema),
   createInventoryItem,
+);
+inventoryRouter.get(
+  '/prescriptions/pending',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  listPendingPrescriptions,
+);
+inventoryRouter.post(
+  '/prescriptions/:encounterId/:prescriptionId/dispense',
+  authorize(PERMISSIONS.INVENTORY_ADJUST),
+  verifyCsrf,
+  validate(prescriptionDispenseSchema),
+  dispensePrescription,
 );
 inventoryRouter.post(
   '/:id/transactions',

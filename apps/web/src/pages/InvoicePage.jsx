@@ -10,7 +10,13 @@ import { FormField, inputClassName } from '../components/forms/FormField.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { InvoiceLetterhead } from '../components/billing/InvoiceLetterhead.jsx';
 import { useAuth } from '../hooks/useAuth.js';
-import { collectPayment, getInvoice } from '../services/clinic.service.js';
+import {
+  collectPayment,
+  getInvoice,
+  refundInvoice,
+  voidInvoice,
+} from '../services/clinic.service.js';
+import { formatClinicDateTime } from '../utils/format.js';
 
 export default function InvoicePage() {
   const { invoiceId } = useParams();
@@ -33,6 +39,24 @@ export default function InvoicePage() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['queue'] });
       form.reset({ amount: invoice.balance, method: 'CASH', reference: '' });
+    },
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: (values) => voidInvoice(invoiceId, values),
+    onSuccess: (invoice) => {
+      queryClient.setQueryData(['invoice', invoiceId], invoice);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['queue'] });
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: (values) => refundInvoice(invoiceId, values),
+    onSuccess: (invoice) => {
+      queryClient.setQueryData(['invoice', invoiceId], invoice);
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['queue'] });
     },
   });
 
@@ -227,6 +251,120 @@ export default function InvoicePage() {
               </div>
             )}
           </section>
+
+          {invoice.status === 'UNPAID' && canCollect ? (
+            <section className="no-print rounded-2xl border border-clinic-border bg-clinic-surface p-5 shadow-card">
+              <h2 className="font-display text-lg font-semibold text-clinic-danger">
+                Void invoice
+              </h2>
+              <p className="mt-1 text-xs text-clinic-muted">
+                Cancel this unpaid invoice if issued in error or visit was abandoned.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const reason = e.target.elements.voidReason.value.trim();
+                  if (reason.length >= 2) voidMutation.mutate({ reason });
+                }}
+                className="mt-3 space-y-3"
+              >
+                <input
+                  name="voidReason"
+                  required
+                  placeholder="Reason for cancellation…"
+                  className={inputClassName}
+                />
+                {voidMutation.isError ? <ApiErrorNotice error={voidMutation.error} /> : null}
+                <button
+                  type="submit"
+                  disabled={voidMutation.isPending}
+                  className="w-full rounded-xl border border-clinic-danger/40 bg-clinic-danger-soft px-4 py-2 text-sm font-bold text-clinic-danger hover:bg-clinic-danger/10 disabled:opacity-50"
+                >
+                  {voidMutation.isPending ? 'Voiding…' : 'Void invoice'}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {(invoice.status === 'PAID' || invoice.status === 'PARTIAL') && canCollect ? (
+            <section className="no-print rounded-2xl border border-clinic-border bg-clinic-surface p-5 shadow-card">
+              <h2 className="font-display text-lg font-semibold text-clinic-text">Issue refund</h2>
+              <p className="mt-1 text-xs text-clinic-muted">
+                Refund collected fees with authorization and reason.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const amount = Number(e.target.elements.refundAmount.value);
+                  const reason = e.target.elements.refundReason.value.trim();
+                  const method = e.target.elements.refundMethod.value;
+                  if (amount > 0 && reason.length >= 2) {
+                    refundMutation.mutate({ amount, reason, method });
+                  }
+                }}
+                className="mt-3 space-y-3"
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    name="refundAmount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={invoice.paidAmount - (invoice.refundedAmount || 0)}
+                    defaultValue={invoice.paidAmount - (invoice.refundedAmount || 0)}
+                    required
+                    placeholder="Amount ₹"
+                    className={inputClassName}
+                  />
+                  <select name="refundMethod" className={inputClassName} defaultValue="CASH">
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="CARD">Card</option>
+                  </select>
+                </div>
+                <input
+                  name="refundReason"
+                  required
+                  placeholder="Reason for refund…"
+                  className={inputClassName}
+                />
+                {refundMutation.isError ? <ApiErrorNotice error={refundMutation.error} /> : null}
+                <button
+                  type="submit"
+                  disabled={refundMutation.isPending}
+                  className="w-full rounded-xl border border-clinic-border bg-clinic-surface px-4 py-2 text-sm font-bold text-clinic-danger hover:bg-clinic-danger-soft disabled:opacity-50"
+                >
+                  {refundMutation.isPending ? 'Processing refund…' : 'Process refund'}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {invoice.refunds?.length ? (
+            <section className="invoice-refunds rounded-2xl border border-clinic-danger/30 bg-clinic-surface p-5 shadow-card">
+              <h2 className="font-display text-lg font-semibold text-clinic-danger">
+                Refund history
+              </h2>
+              <ul className="mt-3 divide-y divide-clinic-border">
+                {invoice.refunds.map((refund, idx) => (
+                  <li key={refund.id || idx} className="py-2 text-sm">
+                    <div className="flex justify-between font-semibold text-clinic-danger">
+                      <span>-₹{refund.amount.toLocaleString('en-IN')}</span>
+                      <span>{refund.method}</span>
+                    </div>
+                    <p className="text-xs text-clinic-muted">{refund.reason}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {invoice.status === 'CANCELLED' && invoice.voidReason ? (
+            <div className="rounded-2xl border border-clinic-danger/30 bg-clinic-danger-soft p-4 text-sm text-clinic-danger">
+              <strong>Voided:</strong> {invoice.voidReason}
+            </div>
+          ) : null}
+
           <section className="invoice-payments rounded-2xl border border-clinic-border bg-clinic-surface p-5 shadow-card">
             <h2 className="font-display text-lg font-semibold text-clinic-text">Payment history</h2>
             {invoice.payments.length ? (
@@ -256,4 +394,3 @@ export default function InvoicePage() {
     </>
   );
 }
-import { formatClinicDateTime } from '../utils/format.js';

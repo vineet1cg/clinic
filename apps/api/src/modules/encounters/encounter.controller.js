@@ -217,6 +217,10 @@ export async function completeEncounter(req, res) {
     resourceId: encounter.id,
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
+    metadata: {
+      handoff: 'RECEPTION',
+      queueState: QUEUE_STATES.CONSULTATION_COMPLETE,
+    },
   });
   await encounter.populate(encounterPopulation);
   res.json({ encounter: serializeEncounter(encounter, req.user) });

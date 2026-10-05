@@ -119,6 +119,16 @@ export async function collectPayment(id, input, idempotencyKey) {
   return response.data.invoice;
 }
 
+export async function voidInvoice(id, input) {
+  const response = await http.post(`/billing/invoices/${id}/void`, input);
+  return response.data.invoice;
+}
+
+export async function refundInvoice(id, input) {
+  const response = await http.post(`/billing/invoices/${id}/refund`, input);
+  return response.data.invoice;
+}
+
 export async function getReportSummary(params = {}) {
   const response = await http.get('/reports/summary', { params });
   return response.data;
@@ -172,6 +182,19 @@ export async function createInventoryItem(input) {
 export async function recordInventoryTransaction(id, input) {
   const response = await http.post(`/inventory/${id}/transactions`, input);
   return response.data.item;
+}
+
+export async function listPendingPrescriptions() {
+  const response = await http.get('/inventory/prescriptions/pending');
+  return response.data.pending;
+}
+
+export async function dispensePrescription(encounterId, prescriptionId, input) {
+  const response = await http.post(
+    `/inventory/prescriptions/${encounterId}/${prescriptionId}/dispense`,
+    input,
+  );
+  return response.data;
 }
 
 export async function listLabOrders(params = {}) {

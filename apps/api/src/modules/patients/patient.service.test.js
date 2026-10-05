@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../config/env.js', () => ({ env: { OPENEMR_ENABLED: false } }));
-vi.mock('../../integrations/openemr/patients.js', () => ({ createPatient: vi.fn() }));
 vi.mock('../../common/clinic-time.js', () => ({ clinicToday: vi.fn(async () => '2026-09-20') }));
 vi.mock('../../models/counter.model.js', () => ({ nextSequence: vi.fn(async () => 1) }));
 vi.mock('../../models/patient.model.js', () => ({

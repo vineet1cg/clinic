@@ -7,6 +7,8 @@ import {
   appointmentCreateSchema,
   auditLogQuerySchema,
   changePasswordSchema,
+  invoiceCreateSchema,
+  invoiceListSchema,
   patientCreateSchema,
   paymentCreateSchema,
 } from './index.js';
@@ -43,6 +45,17 @@ describe('shared ClinicOS contracts', () => {
 
   it('keeps receptionist permissions away from clinical editing', () => {
     expect(ROLE_PERMISSIONS[USER_ROLES.RECEPTIONIST]).not.toContain(PERMISSIONS.ENCOUNTER_UPDATE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.RECEPTIONIST]).toContain(PERMISSIONS.BILLING_CREATE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.RECEPTIONIST]).toContain(PERMISSIONS.PAYMENT_COLLECT);
+  });
+
+  it('keeps doctors focused on clinical work instead of reception and billing actions', () => {
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).toContain(PERMISSIONS.ENCOUNTER_COMPLETE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).toContain(PERMISSIONS.VITALS_CREATE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).toContain(PERMISSIONS.VITALS_UPDATE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).not.toContain(PERMISSIONS.QUEUE_MANAGE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).not.toContain(PERMISSIONS.BILLING_CREATE);
+    expect(ROLE_PERMISSIONS[USER_ROLES.DOCTOR]).not.toContain(PERMISSIONS.PAYMENT_COLLECT);
   });
 
   it('defines the normal queue progression', () => {
@@ -54,6 +67,25 @@ describe('shared ClinicOS contracts', () => {
   it('rejects fractional-paisa payments', () => {
     expect(paymentCreateSchema.safeParse({ amount: 1.005, method: 'CASH' }).success).toBe(false);
     expect(paymentCreateSchema.safeParse({ amount: 1.01, method: 'CASH' }).success).toBe(true);
+  });
+
+  it('supports recovering the final invoice for a reception handoff', () => {
+    expect(
+      invoiceListSchema.safeParse({ queueEntryId: 'queue-1', purpose: 'GENERAL' }).success,
+    ).toBe(true);
+  });
+
+  it('removes blank optional visit relationships from a general invoice', () => {
+    const invoice = invoiceCreateSchema.parse({
+      patientId: 'patient-1',
+      queueEntryId: '',
+      doctorId: '   ',
+      items: [{ description: 'Procedure', quantity: 1, rate: 2000 }],
+      discount: 0,
+    });
+
+    expect(invoice.queueEntryId).toBeUndefined();
+    expect(invoice.doctorId).toBeUndefined();
   });
 
   it('requires a strong confirmed replacement password', () => {

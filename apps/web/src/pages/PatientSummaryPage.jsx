@@ -9,6 +9,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { getPatient } from '../services/clinic.service.js';
 import { useAuth } from '../hooks/useAuth.js';
+import { formatClinicDate, formatClinicDateTime } from '../utils/format.js';
 
 function Detail({ label, value }) {
   return (
@@ -235,4 +236,3 @@ export default function PatientSummaryPage() {
     </>
   );
 }
-import { formatClinicDate, formatClinicDateTime } from '../utils/format.js';

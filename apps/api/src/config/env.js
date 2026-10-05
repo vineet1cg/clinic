@@ -51,13 +51,6 @@ const envSchema = z
     COOKIE_SECURE: booleanFromEnv,
     LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
     LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
-    OPENEMR_ENABLED: booleanFromEnv,
-    OPENEMR_BASE_URL: z.url().default('http://localhost:8300'),
-    OPENEMR_TOKEN_URL: z.url().default('http://localhost:8300/oauth2/default/token'),
-    OPENEMR_CLIENT_ID: z.string().default(''),
-    OPENEMR_CLIENT_SECRET: z.string().default(''),
-    OPENEMR_SCOPES: z.string().default('openid api:oemr api:fhir user/Patient.read'),
-    OPENEMR_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
   })
   .superRefine((value, context) => {
     if (value.NODE_ENV === 'production') {
@@ -97,14 +90,6 @@ const envSchema = z
           message: 'Every CORS origin must use HTTPS in production',
         });
       }
-    }
-
-    if (value.OPENEMR_ENABLED && (!value.OPENEMR_CLIENT_ID || !value.OPENEMR_CLIENT_SECRET)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['OPENEMR_CLIENT_ID'],
-        message: 'OpenEMR credentials are required when the integration is enabled',
-      });
     }
   });
 

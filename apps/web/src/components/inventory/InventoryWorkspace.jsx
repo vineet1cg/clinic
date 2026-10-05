@@ -6,12 +6,16 @@ import { useForm } from 'react-hook-form';
 import { inventoryItemCreateSchema, inventoryTransactionSchema } from '@clinicos/contracts';
 import {
   createInventoryItem,
+  dispensePrescription,
   listInventory,
+  listPendingPrescriptions,
   recordInventoryTransaction,
 } from '../../services/clinic.service.js';
 import { ApiErrorNotice } from '../feedback/ApiErrorNotice.jsx';
 import { EmptyState } from '../feedback/EmptyState.jsx';
+import { DateField } from '../forms/DateField.jsx';
 import { FormField, inputClassName } from '../forms/FormField.jsx';
+import { formatClinicDate } from '../../utils/format.js';
 
 function stockTone(item) {
   if (item.quantityOnHand <= item.reorderLevel) return 'bg-clinic-danger-soft text-clinic-danger';
@@ -21,7 +25,25 @@ function stockTone(item) {
 export function InventoryWorkspace({ pharmacy = false }) {
   const queryClient = useQueryClient();
   const [selectedItem, setSelectedItem] = useState(null);
+  const [dispensingRx, setDispensingRx] = useState(null);
   const inventoryQuery = useQuery({ queryKey: ['inventory'], queryFn: listInventory });
+  const pendingPrescriptionsQuery = useQuery({
+    queryKey: ['pending-prescriptions'],
+    queryFn: listPendingPrescriptions,
+    enabled: pharmacy,
+    refetchInterval: 15000,
+  });
+
+  const dispenseMutation = useMutation({
+    mutationFn: ({ encounterId, prescriptionId, payload }) =>
+      dispensePrescription(encounterId, prescriptionId, payload),
+    onSuccess: () => {
+      setDispensingRx(null);
+      queryClient.invalidateQueries({ queryKey: ['pending-prescriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+
   const itemForm = useForm({
     resolver: zodResolver(inventoryItemCreateSchema),
     defaultValues: {
@@ -114,12 +136,7 @@ export function InventoryWorkspace({ pharmacy = false }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FormField id="expiryDate" label="Expiry">
-                <input
-                  id="expiryDate"
-                  type="date"
-                  className={inputClassName}
-                  {...itemForm.register('expiryDate')}
-                />
+                <DateField id="expiryDate" name="expiryDate" control={itemForm.control} />
               </FormField>
               <FormField id="inventoryUnit" label="Unit">
                 <input
@@ -197,7 +214,7 @@ export function InventoryWorkspace({ pharmacy = false }) {
                     </div>
                     <p className="mt-1 text-sm text-clinic-muted">
                       {item.sku} · Batch {item.batchNumber || 'not set'} · Exp{' '}
-                      {item.expiryDate || 'not set'}
+                      {item.expiryDate ? formatClinicDate(item.expiryDate) : 'not set'}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -226,7 +243,97 @@ export function InventoryWorkspace({ pharmacy = false }) {
         ) : null}
       </section>
 
-      {selectedItem ? (
+      {dispensingRx ? (
+        <aside className="rounded-2xl border border-clinic-action/40 bg-clinic-surface p-5 shadow-card">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-clinic-text">
+                Dispense medication
+              </h2>
+              <p className="mt-1 text-sm text-clinic-muted">
+                Patient:{' '}
+                <span className="font-semibold text-clinic-text">
+                  {dispensingRx.patient?.fullName}
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close dispense form"
+              onClick={() => setDispensingRx(null)}
+              className="flex size-10 items-center justify-center rounded-lg text-clinic-muted hover:bg-clinic-subtle"
+            >
+              <X aria-hidden="true" size={20} />
+            </button>
+          </div>
+          <div className="mt-4 rounded-xl border border-clinic-border bg-clinic-bg p-3 text-sm space-y-1">
+            <p className="font-bold text-clinic-primary text-base">{dispensingRx.rx.medicine}</p>
+            <p className="text-xs text-clinic-muted">
+              Dose: {dispensingRx.rx.dose} · {dispensingRx.rx.frequency} ·{' '}
+              {dispensingRx.rx.duration}
+            </p>
+            {dispensingRx.rx.instructions ? (
+              <p className="text-xs text-clinic-muted italic">{dispensingRx.rx.instructions}</p>
+            ) : null}
+          </div>
+          <form
+            className="mt-4 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const inventoryItemId = e.target.elements.inventoryItemId.value;
+              const quantity = Number(e.target.elements.quantity.value);
+              dispenseMutation.mutate({
+                encounterId: dispensingRx.encounterId,
+                prescriptionId: dispensingRx.rx.id,
+                payload: { inventoryItemId, quantity },
+              });
+            }}
+          >
+            <FormField id="inventoryItemSelect" label="Stock item to dispense" required>
+              <select
+                id="inventoryItemSelect"
+                name="inventoryItemId"
+                required
+                className={inputClassName}
+                defaultValue={
+                  inventory.find((i) =>
+                    i.name
+                      .toLowerCase()
+                      .includes(dispensingRx.rx.medicine.toLowerCase().slice(0, 4)),
+                  )?.id || ''
+                }
+              >
+                <option value="">Select medicine batch from inventory…</option>
+                {inventory.map((item) => (
+                  <option key={item.id} value={item.id} disabled={item.quantityOnHand <= 0}>
+                    {item.name} ({item.quantityOnHand} {item.unit} available) — Batch:{' '}
+                    {item.batchNumber || 'N/A'}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField id="dispenseQuantity" label="Quantity to dispense" required>
+              <input
+                id="dispenseQuantity"
+                name="quantity"
+                type="number"
+                min="1"
+                required
+                defaultValue={dispensingRx.rx.quantity || 1}
+                className={inputClassName}
+              />
+            </FormField>
+            {dispenseMutation.isError ? <ApiErrorNotice error={dispenseMutation.error} /> : null}
+            <button
+              type="submit"
+              disabled={dispenseMutation.isPending}
+              className="min-h-11 w-full rounded-xl bg-clinic-action px-4 font-bold text-white hover:bg-clinic-action-hover disabled:opacity-50"
+            >
+              {dispenseMutation.isPending ? 'Dispensing…' : 'Complete dispensing'}
+            </button>
+          </form>
+        </aside>
+      ) : selectedItem ? (
         <aside
           className={`${pharmacy ? '' : 'xl:col-start-2'} rounded-2xl border border-clinic-primary/30 bg-clinic-surface p-5 shadow-card`}
         >
@@ -315,6 +422,64 @@ export function InventoryWorkspace({ pharmacy = false }) {
                   : 'Record transaction'}
             </button>
           </form>
+        </aside>
+      ) : pharmacy ? (
+        <aside className="rounded-2xl border border-clinic-border bg-clinic-surface p-5 shadow-card space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold text-clinic-text flex items-center gap-2">
+              <Pill aria-hidden="true" className="text-clinic-primary" size={20} />
+              Pending Prescriptions
+            </h2>
+            <span className="rounded-full bg-clinic-primary/10 px-2 py-0.5 text-xs font-bold text-clinic-primary">
+              {pendingPrescriptionsQuery.data?.length || 0}
+            </span>
+          </div>
+          {pendingPrescriptionsQuery.isLoading ? (
+            <p className="text-xs text-clinic-muted">Loading pending prescriptions…</p>
+          ) : !pendingPrescriptionsQuery.data?.length ? (
+            <p className="text-xs text-clinic-muted">
+              No pending prescriptions waiting for dispensing.
+            </p>
+          ) : (
+            <ul className="divide-y divide-clinic-border text-sm max-h-[600px] overflow-y-auto space-y-3">
+              {pendingPrescriptionsQuery.data.map((item) => (
+                <li key={item.encounterId} className="pt-3 space-y-2">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-clinic-text">{item.patient?.fullName}</span>
+                    <span className="text-xs text-clinic-muted">Dr. {item.doctor?.name}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {item.prescriptions.map((rx) => (
+                      <div
+                        key={rx.id}
+                        className="flex justify-between items-center bg-clinic-bg rounded-lg p-2 text-xs"
+                      >
+                        <div>
+                          <p className="font-semibold text-clinic-text">{rx.medicine}</p>
+                          <p className="text-clinic-muted">
+                            {rx.dose} · {rx.duration}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDispensingRx({
+                              encounterId: item.encounterId,
+                              patient: item.patient,
+                              rx,
+                            })
+                          }
+                          className="rounded-lg bg-clinic-action px-2.5 py-1 text-xs font-bold text-white hover:bg-clinic-action-hover"
+                        >
+                          Dispense
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
       ) : null}
     </div>

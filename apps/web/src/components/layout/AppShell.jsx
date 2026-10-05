@@ -14,6 +14,15 @@ export function AppShell() {
     mainRef.current?.focus({ preventScroll: true });
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!navigationOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setNavigationOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [navigationOpen]);
+
   return (
     <div className="min-h-dvh bg-clinic-bg text-clinic-text">
       <a
@@ -23,8 +32,8 @@ export function AppShell() {
         Skip to main content
       </a>
       <Sidebar open={navigationOpen} onClose={() => setNavigationOpen(false)} user={user} />
-      <div className="app-content lg:pl-72">
-        <Topbar onOpenNavigation={() => setNavigationOpen(true)} />
+      <div className="app-content">
+        <Topbar navigationOpen={navigationOpen} onOpenNavigation={() => setNavigationOpen(true)} />
         <main
           id="main-content"
           ref={mainRef}

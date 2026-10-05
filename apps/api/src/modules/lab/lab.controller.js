@@ -7,6 +7,7 @@ import { LabOrder } from '../../models/lab-order.model.js';
 import { Patient } from '../../models/patient.model.js';
 import { writeAuditEntry } from '../audit/audit.service.js';
 import { resolvePermissions } from '../auth/auth.service.js';
+import { enqueueLabResultReadyNotification } from '../../queues/notification.service.js';
 
 const labPopulation = [{ path: 'patientId', select: 'patientNumber fullName mobile' }];
 
@@ -123,5 +124,17 @@ export async function updateLabOrder(req, res) {
     userAgent: req.get('user-agent'),
     metadata: { status: req.body.status },
   });
+
+  if (
+    [LAB_STATUSES.RESULT_READY, LAB_STATUSES.VERIFIED].includes(order.status) &&
+    order.patientId
+  ) {
+    enqueueLabResultReadyNotification({
+      clinicId,
+      labOrder: order,
+      patient: order.patientId,
+    }).catch(() => {});
+  }
+
   res.json({ order });
 }

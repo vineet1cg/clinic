@@ -6,6 +6,7 @@ import { ApiErrorNotice } from '../components/feedback/ApiErrorNotice.jsx';
 import { EmptyState } from '../components/feedback/EmptyState.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { searchPatients } from '../services/clinic.service.js';
+import { formatClinicDate } from '../utils/format.js';
 
 export default function PatientsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -155,4 +156,3 @@ export default function PatientsPage() {
     </>
   );
 }
-import { formatClinicDate } from '../utils/format.js';

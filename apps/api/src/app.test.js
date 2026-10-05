@@ -15,7 +15,25 @@ describe('ClinicOS API contracts', () => {
     const response = await request(createApp()).get('/api/v1');
 
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ name: 'ClinicOS API', version: 'v1' });
+    expect(response.body).toEqual({
+      name: 'ClinicOS API',
+      version: 'v1',
+      status: 'ready',
+      resources: [
+        'auth',
+        'staff',
+        'patients',
+        'appointments',
+        'queue',
+        'encounters',
+        'billing',
+        'reports',
+        'audit',
+        'settings',
+        'inventory',
+        'lab',
+      ],
+    });
   });
 
   it('uses the standard not-found error contract', async () => {

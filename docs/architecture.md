@@ -190,7 +190,16 @@ Collect payment -> persist invoice and payment replay key
                                   |
                               consultation
                                   |
-                      additional-service billing if applicable
+                     CONSULTATION_COMPLETE
+                        (awaiting reception)
+                          /               \
+             no extra charges       prepare final invoice
+                    |                       |
+               COMPLETED             BILLING_PENDING
+                                            |
+                                      payment -> PAID
+                                            |
+                                       COMPLETED
 ```
 
 `modules/billing/consultation.service.js` coordinates fee resolution, invoice creation/recovery, payment checks, and release. A missing/non-positive effective fee blocks new registration. Reception can see payment-pending visits; allocating a token does not admit the patient to the doctor workflow. The API enforces payment, not merely the UI.
@@ -204,6 +213,12 @@ Key operations, relative to `/api/v1`:
 - `PATCH /queue/:id/state`: transitions guarded by the shared state machine and payment checks.
 
 Matching payment retries return the saved result; reuse with different details is rejected. A replay can retry release of a paid consultation visit. Full payment moves it to `WAITING` and sets payment-cleared/check-in timestamps. Legacy visits without `paymentRequired` are not retroactively charged.
+
+The doctor completes the encounter but does not perform reception or billing transitions. Completion
+locks the clinical record, records an audited reception handoff, and moves the queue entry to
+`CONSULTATION_COMPLETE` (**Awaiting reception**). A receptionist can close a visit with no extra
+charges, or create a final general invoice for post-consultation services. Returning to a
+`BILLING_PENDING` visit recovers its existing general invoice instead of presenting a fresh bill.
 
 The flow spans multiple documents without a transaction. A payment can persist before queue release or audit writing fails. Recovery and replay reduce duplicate work but do not provide exactly-once execution or full financial atomicity. Replica-set transactions or durable outbox/reconciliation remain release work. UPI/card payments currently record staff attestation and a reference, not verified provider settlement.
 

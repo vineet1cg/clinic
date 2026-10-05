@@ -27,6 +27,10 @@ const prescriptionItemSchema = new mongoose.Schema(
     duration: { type: String, required: true },
     instructions: String,
     quantity: Number,
+    dispensed: { type: Boolean, default: false },
+    dispensedAt: Date,
+    dispensedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    inventoryItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem' },
   },
   { _id: true },
 );

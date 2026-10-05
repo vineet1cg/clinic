@@ -1,10 +1,14 @@
-change date format to dd/mm/yyyy
-age auto calcuate ( also auto calculate date and time ) 
-fix add walk in ( add consultation payment here )
-in the appointment section fix check in and collect fees 
+# Completed workflow changes
 
+Completed on 21/09/2026.
 
+- [x] Display and accept dates as `dd/mm/yyyy` while retaining ISO dates in API/database contracts.
+- [x] Calculate age automatically from date of birth in the browser and again on the server.
+- [x] Calculate current clinic date/time automatically for registration, appointments, and walk-ins.
+- [x] Register walk-ins and collect the consultation payment in the same workflow.
+- [x] Check in booked patients and collect the consultation fee before queue admission.
+- [x] Keep unpaid visits out of the doctor queue.
+- [x] Limit doctors to consultation, conditions/assessment, and prescriptions.
+- [x] Hand completed consultations back to reception for final billing or no-charge closure.
 
-
-doctor wont send to billing, will send to reception for billing and the workflow would be handled further by receptionist doctor's only job is consult patients and marks conditions with prescribing medicines
-
+See [Consultation-to-reception workflow](docs/reception-handoff.md) for the operational reference.

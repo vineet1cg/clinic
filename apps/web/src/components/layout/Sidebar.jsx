@@ -60,13 +60,16 @@ export function Sidebar({ open, onClose, user }) {
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
+          className="no-print fixed inset-0 z-30 bg-slate-950/50"
           onClick={onClose}
         />
       ) : null}
       <aside
+        id="primary-navigation"
         aria-label="Primary navigation"
-        className={`no-print fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-clinic-border bg-clinic-surface transition-transform duration-200 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        aria-hidden={!open}
+        inert={!open}
+        className={`no-print fixed inset-y-0 left-0 z-40 flex w-72 max-w-[calc(100vw-2rem)] flex-col border-r border-clinic-border bg-clinic-surface shadow-2xl transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex h-20 items-center justify-between border-b border-clinic-border px-5">
           <NavLink
@@ -79,7 +82,7 @@ export function Sidebar({ open, onClose, user }) {
           <button
             type="button"
             aria-label="Close navigation"
-            className="flex size-11 items-center justify-center rounded-xl text-clinic-muted hover:bg-clinic-subtle lg:hidden"
+            className="flex size-11 items-center justify-center rounded-xl text-clinic-muted hover:bg-clinic-subtle"
             onClick={onClose}
           >
             <X aria-hidden="true" size={22} />

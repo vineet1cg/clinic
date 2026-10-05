@@ -26,11 +26,12 @@ apiRouter.get('/', (_req, res) => {
       'appointments',
       'queue',
       'encounters',
-      'vitals',
-      'prescriptions',
       'billing',
       'reports',
       'audit',
+      'settings',
+      'inventory',
+      'lab',
     ],
   });
 });

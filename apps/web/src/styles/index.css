@@ -75,8 +75,13 @@
   box-sizing: border-box;
 }
 
+.prescription-table-shell {
+  contain: inline-size paint;
+}
+
 html {
   min-width: 320px;
+  overflow-x: clip;
   background: var(--color-clinic-bg);
 }
 
@@ -85,6 +90,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   min-height: 100dvh;
+  overflow-x: clip;
 }
 
 button,

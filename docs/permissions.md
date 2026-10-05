@@ -2,18 +2,18 @@
 
 Permissions are granular strings from `packages/contracts/src/constants.js`. Roles are default permission bundles, not hard-coded controller checks. The API must use `authenticate`, `verifyCsrf` for mutations, and `authorize(permission)` on protected routes.
 
-| Role          | Primary scope                                  | Explicit boundary                               |
-| ------------- | ---------------------------------------------- | ----------------------------------------------- |
-| Super admin   | System, integration, staff, backups            | Use only for administration                     |
-| Clinic owner  | Operations, financial reports, staff oversight | Medical notes are not automatic owner access    |
-| Desk manager  | Patients, schedules, queue, front desk         | No clinical editing                             |
-| Receptionist  | Search/register, appointments, walk-ins, queue | No diagnosis, prescription, or clinical history |
-| Doctor        | Assigned clinical workflow and own queue       | No staff or financial administration by default |
-| Nurse         | Vitals, intake, queue                          | No final diagnosis or prescribing               |
-| Billing staff | Invoices, payment, financial reports           | No detailed clinical notes                      |
-| Pharmacist    | Prescriptions and medicine inventory           | No encounter editing                            |
-| Lab staff     | Orders, samples, results, verification         | No unrelated chart editing                      |
-| Patient       | Future portal self-service                     | No staff application access in V1               |
+| Role          | Primary scope                                  | Explicit boundary                                 |
+| ------------- | ---------------------------------------------- | ------------------------------------------------- |
+| Super admin   | System, integration, staff, backups            | Use only for administration                       |
+| Clinic owner  | Operations, financial reports, staff oversight | Medical notes are not automatic owner access      |
+| Desk manager  | Patients, schedules, queue, front desk         | No clinical editing                               |
+| Receptionist  | Registration, scheduling, queue, final billing | No diagnosis, prescription, or clinical editing   |
+| Doctor        | Assigned consultations and prescriptions       | No queue transitions, payment, or billing actions |
+| Nurse         | Vitals, intake, queue                          | No final diagnosis or prescribing                 |
+| Billing staff | Invoices, payment, financial reports           | No detailed clinical notes                        |
+| Pharmacist    | Prescriptions and medicine inventory           | No encounter editing                              |
+| Lab staff     | Orders, samples, results, verification         | No unrelated chart editing                        |
+| Patient       | Future portal self-service                     | No staff application access in V1                 |
 
 Role bundles are intentionally conservative. Clinic-specific additions go into `additionalPermissions`; explicit removals go into `deniedPermissions`. Every role or permission change must create an audit event and invalidate or re-evaluate active sessions.
 
@@ -31,3 +31,8 @@ router.post(
 ```
 
 Frontend navigation is filtered with the same shared permissions, but API enforcement remains authoritative.
+
+After a doctor completes an encounter, the clinical record is locked and the visit enters
+`CONSULTATION_COMPLETE`, displayed as **Awaiting reception**. Reception can then prepare an
+additional-services invoice or close the visit when there are no extra charges. Doctors cannot
+perform either action through the default role bundle.

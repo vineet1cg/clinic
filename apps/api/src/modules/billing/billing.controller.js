@@ -8,6 +8,8 @@ import { Patient } from '../../models/patient.model.js';
 import { QueueEntry } from '../../models/queue-entry.model.js';
 import { User } from '../../models/user.model.js';
 import { writeAuditEntry } from '../audit/audit.service.js';
+import { runInTransaction } from '../../db/transaction.js';
+import { enqueuePaymentReceiptNotification } from '../../queues/notification.service.js';
 import { releasePaidConsultationVisit } from './consultation.service.js';
 
 const invoicePopulation = [
@@ -36,10 +38,12 @@ function assertMatchingPaymentReplay(payment, input) {
 
 export async function listInvoices(req, res) {
   const clinicId = getClinicId(req.user);
-  const { status, patientId, date } = req.validated.query;
+  const { status, patientId, queueEntryId, purpose, date } = req.validated.query;
   const filter = { clinicId };
   if (status) filter.status = status;
   if (patientId) filter.patientId = patientId;
+  if (queueEntryId) filter.queueEntryId = queueEntryId;
+  if (purpose) filter.purpose = purpose;
   if (date) {
     filter.createdAt = await clinicDateRange(clinicId, date, date);
   }
@@ -223,53 +227,56 @@ export async function collectPayment(req, res) {
     });
   }
 
-  invoice.payments.push({
-    ...req.body,
-    idempotencyKey,
-    collectedBy: req.user._id,
-    collectedAt: new Date(),
-  });
-  invoice.paidAmount = money(invoice.paidAmount + req.body.amount);
-  invoice.balance = money(invoice.total - invoice.paidAmount);
-  invoice.status = invoice.balance === 0 ? INVOICE_STATUSES.PAID : INVOICE_STATUSES.PARTIAL;
-  try {
-    await invoice.save();
-  } catch (error) {
-    if (error?.name === 'VersionError' || error?.code === 11000) {
-      const replay = await Invoice.findOne({
-        _id: req.params.id,
-        clinicId,
-        'payments.idempotencyKey': idempotencyKey,
-      });
-      if (replay) {
-        assertMatchingPaymentReplay(
-          replay.payments.find((payment) => payment.idempotencyKey === idempotencyKey),
-          req.body,
-        );
-        await releasePaidConsultationVisit(replay, req.user._id);
-        await replay.populate(invoicePopulation);
-        return res.json({ invoice: replay, idempotentReplay: true });
+  await runInTransaction(async (session) => {
+    invoice.payments.push({
+      ...req.body,
+      idempotencyKey,
+      collectedBy: req.user._id,
+      collectedAt: new Date(),
+    });
+    invoice.paidAmount = money(invoice.paidAmount + req.body.amount);
+    invoice.balance = money(invoice.total - invoice.paidAmount);
+    invoice.status = invoice.balance === 0 ? INVOICE_STATUSES.PAID : INVOICE_STATUSES.PARTIAL;
+
+    try {
+      await invoice.save(session ? { session } : {});
+    } catch (error) {
+      if (error?.name === 'VersionError' || error?.code === 11000) {
+        const replay = await Invoice.findOne({
+          _id: req.params.id,
+          clinicId,
+          'payments.idempotencyKey': idempotencyKey,
+        });
+        if (replay) {
+          assertMatchingPaymentReplay(
+            replay.payments.find((payment) => payment.idempotencyKey === idempotencyKey),
+            req.body,
+          );
+          await releasePaidConsultationVisit(replay, req.user._id);
+          await replay.populate(invoicePopulation);
+          return res.json({ invoice: replay, idempotentReplay: true });
+        }
+      }
+      throw error;
+    }
+
+    await releasePaidConsultationVisit(invoice, req.user._id);
+
+    if (invoice.balance === 0 && invoice.queueEntryId) {
+      const queueEntry = await QueueEntry.findOne({ _id: invoice.queueEntryId, clinicId });
+      if (queueEntry?.state === QUEUE_STATES.BILLING_PENDING) {
+        queueEntry.transitions.push({
+          from: queueEntry.state,
+          to: QUEUE_STATES.PAID,
+          actorId: req.user._id,
+          at: new Date(),
+        });
+        queueEntry.state = QUEUE_STATES.PAID;
+        queueEntry.billingCompletedAt = new Date();
+        await queueEntry.save(session ? { session } : {});
       }
     }
-    throw error;
-  }
-
-  await releasePaidConsultationVisit(invoice, req.user._id);
-
-  if (invoice.balance === 0 && invoice.queueEntryId) {
-    const queueEntry = await QueueEntry.findOne({ _id: invoice.queueEntryId, clinicId });
-    if (queueEntry?.state === QUEUE_STATES.BILLING_PENDING) {
-      queueEntry.transitions.push({
-        from: queueEntry.state,
-        to: QUEUE_STATES.PAID,
-        actorId: req.user._id,
-        at: new Date(),
-      });
-      queueEntry.state = QUEUE_STATES.PAID;
-      queueEntry.billingCompletedAt = new Date();
-      await queueEntry.save();
-    }
-  }
+  });
 
   await writeAuditEntry({
     clinicId,
@@ -281,6 +288,150 @@ export async function collectPayment(req, res) {
     userAgent: req.get('user-agent'),
     metadata: { amount: req.body.amount, method: req.body.method },
   });
+
+  const patient = await Patient.findOne({ _id: invoice.patientId, clinicId });
+  if (patient) {
+    enqueuePaymentReceiptNotification({
+      clinicId,
+      invoice,
+      patient,
+      payment: req.body,
+    }).catch(() => {});
+  }
+
+  await invoice.populate(invoicePopulation);
+  res.json({ invoice });
+}
+
+export async function voidInvoice(req, res) {
+  const clinicId = getClinicId(req.user);
+  const invoice = await Invoice.findOne({ _id: req.params.id, clinicId });
+  if (!invoice) {
+    throw new AppError({
+      code: 'INVOICE_NOT_FOUND',
+      message: 'Invoice was not found.',
+      statusCode: 404,
+    });
+  }
+
+  if (invoice.status === INVOICE_STATUSES.CANCELLED) {
+    throw new AppError({
+      code: 'INVOICE_ALREADY_CANCELLED',
+      message: 'This invoice has already been voided/cancelled.',
+      statusCode: 409,
+    });
+  }
+
+  if (invoice.paidAmount > 0) {
+    throw new AppError({
+      code: 'PAID_INVOICE_CANNOT_BE_VOIDED',
+      message: 'Invoices with recorded payments cannot be voided. Issue a refund instead.',
+      statusCode: 409,
+    });
+  }
+
+  await runInTransaction(async (session) => {
+    invoice.status = INVOICE_STATUSES.CANCELLED;
+    invoice.voidReason = req.body.reason;
+    invoice.voidedAt = new Date();
+    invoice.voidedBy = req.user._id;
+    await invoice.save(session ? { session } : {});
+
+    if (invoice.queueEntryId) {
+      const queueEntry = await QueueEntry.findOne({ _id: invoice.queueEntryId, clinicId });
+      if (queueEntry && queueEntry.state === QUEUE_STATES.PAYMENT_PENDING) {
+        queueEntry.transitions.push({
+          from: queueEntry.state,
+          to: QUEUE_STATES.CANCELLED,
+          actorId: req.user._id,
+          at: new Date(),
+        });
+        queueEntry.state = QUEUE_STATES.CANCELLED;
+        await queueEntry.save(session ? { session } : {});
+      }
+    }
+  });
+
+  await writeAuditEntry({
+    clinicId,
+    actorId: req.user._id,
+    action: 'invoice.void',
+    resourceType: 'invoice',
+    resourceId: invoice.id,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    metadata: { reason: req.body.reason, invoiceNumber: invoice.invoiceNumber },
+  });
+
+  await invoice.populate(invoicePopulation);
+  res.json({ invoice });
+}
+
+export async function refundInvoice(req, res) {
+  const clinicId = getClinicId(req.user);
+  const { amount, reason, method, reference } = req.body;
+  const invoice = await Invoice.findOne({ _id: req.params.id, clinicId });
+  if (!invoice) {
+    throw new AppError({
+      code: 'INVOICE_NOT_FOUND',
+      message: 'Invoice was not found.',
+      statusCode: 404,
+    });
+  }
+
+  if (invoice.status === INVOICE_STATUSES.CANCELLED) {
+    throw new AppError({
+      code: 'INVOICE_CANCELLED',
+      message: 'A voided or cancelled invoice cannot be refunded.',
+      statusCode: 409,
+    });
+  }
+
+  const refundable = money(invoice.paidAmount - (invoice.refundedAmount || 0));
+  if (refundable <= 0) {
+    throw new AppError({
+      code: 'NO_REFUNDABLE_BALANCE',
+      message: 'This invoice has no paid balance available to refund.',
+      statusCode: 409,
+    });
+  }
+
+  if (amount > refundable) {
+    throw new AppError({
+      code: 'REFUND_EXCEEDS_PAID',
+      message: `Refund amount of ₹${amount} exceeds the refundable balance of ₹${refundable}.`,
+      statusCode: 422,
+    });
+  }
+
+  await runInTransaction(async (session) => {
+    invoice.refunds.push({
+      amount,
+      reason,
+      method: method || 'CASH',
+      reference,
+      refundedBy: req.user._id,
+      refundedAt: new Date(),
+    });
+
+    invoice.refundedAmount = money((invoice.refundedAmount || 0) + amount);
+    if (invoice.refundedAmount >= invoice.paidAmount) {
+      invoice.status = INVOICE_STATUSES.REFUNDED;
+    }
+    await invoice.save(session ? { session } : {});
+  });
+
+  await writeAuditEntry({
+    clinicId,
+    actorId: req.user._id,
+    action: 'payment.refund',
+    resourceType: 'invoice',
+    resourceId: invoice.id,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    metadata: { amount, reason, method, invoiceNumber: invoice.invoiceNumber },
+  });
+
   await invoice.populate(invoicePopulation);
   res.json({ invoice });
 }

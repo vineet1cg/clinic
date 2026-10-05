@@ -17,7 +17,7 @@ const statusConfig = {
   VITALS_COMPLETE: ['Vitals complete', 'primary'],
   READY_FOR_DOCTOR: ['Ready for doctor', 'primary'],
   IN_CONSULTATION: ['In consultation', 'info'],
-  CONSULTATION_COMPLETE: ['Consultation complete', 'violet'],
+  CONSULTATION_COMPLETE: ['Awaiting reception', 'violet'],
   BILLING_PENDING: ['Billing pending', 'warning'],
   PAID: ['Paid', 'success'],
   COMPLETED: ['Completed', 'success'],

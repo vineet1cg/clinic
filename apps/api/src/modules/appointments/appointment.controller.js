@@ -10,6 +10,7 @@ import { ClinicSettings } from '../../models/clinic-settings.model.js';
 import { Patient } from '../../models/patient.model.js';
 import { User } from '../../models/user.model.js';
 import { writeAuditEntry } from '../audit/audit.service.js';
+import { enqueueAppointmentConfirmationNotification } from '../../queues/notification.service.js';
 import {
   registerConsultationVisit,
   resolveConsultationFee,
@@ -63,6 +64,14 @@ export async function listAppointments(req, res) {
 
 export async function createAppointment(req, res) {
   const clinicId = getClinicId(req.user);
+  const today = await clinicToday(clinicId);
+  if (req.body.date < today) {
+    throw new AppError({
+      code: 'APPOINTMENT_DATE_IN_PAST',
+      message: 'Choose today or a future appointment date.',
+      statusCode: 422,
+    });
+  }
   const [patient, doctor] = await Promise.all([
     Patient.findOne({ _id: req.body.patientId, clinicId }),
     User.findOne({
@@ -102,6 +111,12 @@ export async function createAppointment(req, res) {
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
   });
+  enqueueAppointmentConfirmationNotification({
+    clinicId,
+    appointment,
+    patient,
+    doctor,
+  }).catch(() => {});
   res.status(201).json({ appointment: serializeAppointment(appointment, req.user) });
 }
 

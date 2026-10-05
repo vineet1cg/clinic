@@ -92,23 +92,12 @@ export function createApp() {
   });
 
   app.get('/health/ready', async (_req, res) => {
-    const checks = { mongo: isMongoReady(), redis: false, openemr: !env.OPENEMR_ENABLED };
+    const checks = { mongo: isMongoReady(), redis: false };
 
     try {
       checks.redis = (await getRedisHealthClient().ping()) === 'PONG';
     } catch {
       checks.redis = false;
-    }
-
-    if (env.OPENEMR_ENABLED) {
-      try {
-        const response = await fetch(new URL('/apis/default/fhir/metadata', env.OPENEMR_BASE_URL), {
-          signal: AbortSignal.timeout(env.OPENEMR_TIMEOUT_MS),
-        });
-        checks.openemr = response.ok || response.status === 401;
-      } catch {
-        checks.openemr = false;
-      }
     }
 
     const ready = Object.values(checks).every(Boolean);

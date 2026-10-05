@@ -32,6 +32,18 @@ const paymentSchema = new mongoose.Schema(
   },
 );
 
+const refundSchema = new mongoose.Schema(
+  {
+    amount: { type: Number, required: true, min: 0.01 },
+    reason: { type: String, required: true },
+    method: { type: String, enum: PAYMENT_METHODS, default: 'CASH' },
+    reference: String,
+    refundedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    refundedAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const invoiceSchema = new mongoose.Schema(
   {
     clinicId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
@@ -50,6 +62,7 @@ const invoiceSchema = new mongoose.Schema(
     discount: { type: Number, default: 0 },
     total: { type: Number, required: true },
     paidAmount: { type: Number, default: 0 },
+    refundedAmount: { type: Number, default: 0 },
     balance: { type: Number, required: true },
     status: {
       type: String,
@@ -58,6 +71,10 @@ const invoiceSchema = new mongoose.Schema(
       index: true,
     },
     payments: { type: [paymentSchema], default: [] },
+    refunds: { type: [refundSchema], default: [] },
+    voidReason: String,
+    voidedAt: Date,
+    voidedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     notes: String,
     createdBy: { type: mongoose.Schema.Types.ObjectId, required: true },
   },

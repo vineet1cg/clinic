@@ -1,4 +1,5 @@
 import { CLINIC_BRAND } from '../../constants/branding.js';
+import { formatClinicDateTime } from '../../utils/format.js';
 import { StatusBadge } from '../ui/StatusBadge.jsx';
 
 export function InvoiceLetterhead({ invoice }) {
@@ -56,4 +57,3 @@ export function InvoiceLetterhead({ invoice }) {
     </header>
   );
 }
-import { formatClinicDateTime } from '../../utils/format.js';

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ClinicOS clinic-management platform for OpenEMR 8.x",
+  "description": "ClinicOS — modern clinical operations, OPD queue, billing, and pharmacy management",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -30,6 +30,7 @@
     "compose:down": "node scripts/compose.js down",
     "compose:config": "node scripts/compose.js config --quiet",
     "seed:admin": "npm run seed:admin --workspace @clinicos/api",
+    "seed:e2e-users": "npm run seed:e2e-users --workspace @clinicos/api",
     "db:indexes": "npm run db:indexes --workspace @clinicos/api",
     "mongo:provision": "node scripts/provision-mongo-user.js"
   },

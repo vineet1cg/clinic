@@ -100,7 +100,14 @@ export function ConsultationPayment({ invoice: initialInvoice, onClose }) {
           <p className="text-xs text-clinic-muted">
             Record only money actually received. Card/UPI entries do not verify provider settlement.
           </p>
-          {mutation.isError ? <ApiErrorNotice error={mutation.error} /> : null}
+          {mutation.isError ? (
+            <div>
+              <ApiErrorNotice error={mutation.error} />
+              <p className="mt-2 text-xs text-clinic-muted">
+                Retrying unchanged details is safe; the same payment attempt key will be reused.
+              </p>
+            </div>
+          ) : null}
           <button
             disabled={mutation.isPending}
             className="min-h-12 rounded-xl bg-clinic-positive-action px-5 font-bold text-white disabled:opacity-50"
@@ -117,6 +124,14 @@ export function ConsultationPayment({ invoice: initialInvoice, onClose }) {
         </p>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-4">
+        {invoice.status === 'PAID' ? (
+          <Link
+            className="inline-flex min-h-11 items-center font-semibold text-clinic-primary underline"
+            to="/app/queue"
+          >
+            Open patient queue
+          </Link>
+        ) : null}
         <Link
           className="inline-flex min-h-11 items-center font-semibold text-clinic-primary underline"
           to={`/app/billing/${invoice.id}`}

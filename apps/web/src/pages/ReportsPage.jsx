@@ -128,7 +128,7 @@ export default function ReportsPage() {
                 <StatCard
                   label="Patients registered"
                   value={report.metrics.registeredPatients}
-                  helper={`${report.range.from} to ${report.range.to}`}
+                  helper={`${formatClinicDate(report.range.from)} to ${formatClinicDate(report.range.to)}`}
                   icon={Users}
                 />
                 <StatCard
